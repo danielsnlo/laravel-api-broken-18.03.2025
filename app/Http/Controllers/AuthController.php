@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -14,7 +15,7 @@ class AuthController extends Controller
             'password' => 'required|confirmed'
         ]);
 
-        $user = $user->create($fields);
+        $user = User::create($fields);
 
         $token = $user->createToken($request->name);
         
@@ -35,20 +36,18 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             return ['message' => 'The provided creadentials are incorrect.'];
         }
-
-        $user->createToken($user->name);
         
+        $token = $user->createToken($user->name)->plainTextToken;
+
         return [
             'user' => $user,
-            'token' => $token->plainTextToken
+            'token' => $token
         ];
     }
 
     public function logout(Request $request) {
         $request->user()->tokens()->delete();
 
-        return [
-            'message' => 'You are logged out.'
-        ];
+        return ['message' => 'You are logged out.'];
     }
 }

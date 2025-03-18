@@ -6,11 +6,13 @@ use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+// use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller implements HasMiddleware
 {
-    public static function middleware() {
+    public static function middleware()
+    {
         return [
             new Middleware('auth:sanctum', except: ['index', 'show'])
         ];
@@ -19,9 +21,9 @@ class PostController extends Controller implements HasMiddleware
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Post $post)
     {
-        return Post()->all();
+        return $post = Post::all();
     }
 
     /**
@@ -32,13 +34,18 @@ class PostController extends Controller implements HasMiddleware
         $fields = $request->validate([
             'title' => 'required|max:255',
             'body' => 'required',
-            'password' => 'required'
         ]);
 
-        $post = Post::create($fields);
+        // $fields['user_id'] = Auth::id();
+
+        // $post = Post::create($fields);
+        // return $fields;
+
+        $post = $request->user()->posts()->create($fields);
 
         return $post;
     }
+
 
     /**
      * Display the specified resource.
