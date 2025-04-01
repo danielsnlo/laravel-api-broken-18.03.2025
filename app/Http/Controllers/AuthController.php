@@ -9,47 +9,67 @@ use App\Models\Role;
 
 class AuthController extends Controller
 {
-    public function register(Request $request) {
+    public function register(Request $request)
+    {
+        // Validate the incoming request
         $fields = $request->validate([
             'name' => 'required|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create($fields);
+        // Create the user
+        $user = User::create([
+            'name' => $fields['name'],
+            'email' => $fields['email'],
+            'password' => Hash::make($fields['password']),
+        ]);
 
-        $token = $user->createToken($request->name);
-        
-        return [
-            'user' => $user,
-            'token' => $token->plainTextToken
-        ];
+        // Create a token for the user
+        $token = $user->createToken($request->name)->plainTextToken;
 
-        // Assign 'Guest' role
+        // Assign the 'Guest' role by default after registration
         $role = Role::where('name', 'Guest')->first();
-        $user->roles()->attach($role);
+        if ($role) {
+            $user->roles()->attach($role);  // Assign the Guest role
+        }
 
-        return response()->json(['message' => 'User registered successfully.'], 201);
+        // Return the user and token information
+        return response()->json([
+            'user' => $user,
+            'token' => $token
+        ]);
     }
 
     public function assignRole(Request $request, $userId)
     {
+        // Check if the authenticated user has the 'Admin' role
+        $authenticatedUser = $request->user();
+        // return $authenticatedUser->hasRole('Admin');
+        if (!$authenticatedUser || !$authenticatedUser->hasRole('Admin')) {
+            return response()->json(['message' => 'Unauthorized to assign roles.'], 403);
+        }
+        // Validate the role input
         $request->validate([
             'role' => 'required|string|in:Admin,Moderator,Guest,Editor',
         ]);
-    
+
+        // Find the user and role to assign
         $user = User::findOrFail($userId);
         $role = Role::where('name', $request->role)->first();
-    
+
         if ($role) {
-            $user->roles()->sync([$role->id]); // Or use ->attach() for adding one role
+            // Sync roles (this will replace any existing roles with the new role)
+            $user->roles()->sync([$role->id]);  // You can use ->attach() if you want to add the role without replacing others
             return response()->json(['message' => 'Role assigned successfully.']);
         }
-    
+
         return response()->json(['message' => 'Role not found.'], 404);
     }
-    
-    public function login(Request $request) {
+
+    public function login(Request $request)
+    {
+        // Validate login credentials
         $request->validate([
             'email' => 'required|email|exists:users',
             'password' => 'required'
@@ -58,20 +78,23 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return ['message' => 'The provided creadentials are incorrect.'];
+            return response()->json(['message' => 'The provided credentials are incorrect.'], 401);
         }
-        
+
+        // Generate a token for the user
         $token = $user->createToken($user->name)->plainTextToken;
 
-        return [
+        return response()->json([
             'user' => $user,
             'token' => $token
-        ];
+        ]);
     }
 
-    public function logout(Request $request) {
+    public function logout(Request $request)
+    {
+        // Revoke all tokens for the user
         $request->user()->tokens()->delete();
 
-        return ['message' => 'You are logged out.'];
+        return response()->json(['message' => 'You are logged out.']);
     }
 }
